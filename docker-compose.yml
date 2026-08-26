@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: noteped
+      POSTGRES_PASSWORD: noteped
+      POSTGRES_DB: noteped
+    ports:
+      - "5432:5432"
+    volumes:
+      - noteped-pg:/var/lib/postgresql/data
+
+volumes:
+  noteped-pg:

@@ -1,0 +1,28 @@
+# 依赖与构建产物
+node_modules/
+.next/
+out/
+generated/
+
+# 环境变量（含密钥，不入库）
+.env
+
+# 本地 npm 镜像源配置（个人环境，不入库）
+.npmrc
+
+# 类型与缓存
+*.tsbuildinfo
+next-env.d.ts
+
+# 用户上传的壁纸（图片/视频）与键入音效（音频）
+public/uploads/
+
+# 日志与临时文件
+*.log
+creat.md
+
+# AI 辅助工具链产物（本地 agent 脚手架，非项目源码）
+.agents/
+.claude/
+.product-team/
+skills-lock.json

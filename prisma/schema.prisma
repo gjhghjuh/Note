@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  notes         Note[]
+  notebooks     Notebook[]
+  tags          Tag[]
+
+  @@map("users")
+}
+
+// Auth.js 邮箱魔法链接用的验证令牌
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Notebook {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes     Note[]
+
+  @@map("notebooks")
+  @@index([userId])
+}
+
+model Tag {
+  id     String @id @default(cuid())
+  name   String
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes  Note[] @relation("NoteTags")
+
+  @@map("tags")
+  @@unique([userId, name])
+}
+
+model Note {
+  id         String    @id @default(cuid())
+  title      String
+  content    String    @default("")
+  userId     String    @map("user_id")
+  notebookId String?   @map("notebook_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  version    Int       @default(1)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notebook   Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
+  tags       Tag[]     @relation("NoteTags")
+
+  @@map("notes")
+  @@index([userId, updatedAt])
+  @@index([notebookId])
+}
