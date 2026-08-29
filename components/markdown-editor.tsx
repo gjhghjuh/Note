@@ -15,6 +15,19 @@ const PALETTE = [
 // 预设字号（像素）
 const SIZES = ["12", "14", "16", "18", "20", "24", "28", "32"];
 
+// 插入表格网格选择器的上限：6 行 × 6 列
+const GRID_ROWS = 6;
+const GRID_COLS = 6;
+
+// 生成 GFM 表格源码：rows 为可见行数（首行作表头），cols 为列数
+function buildTable(rows: number, cols: number) {
+  const empty = "|" + "  |".repeat(cols);   // 空单元格行：|  |  |  |
+  const sep = "|" + " --- |".repeat(cols);  // 表头分隔行：| --- | --- |
+  const lines = [empty, sep];
+  for (let i = 1; i < rows; i++) lines.push(empty);
+  return lines.join("\n");
+}
+
 // 完整样式标记：{{#hex!N}}文字{{/}}，#hex（颜色）与 !N（字号）均可选、顺序固定、至少一个
 // 例子：{{#ef4444}}红{{/}}  {{!20}}大{{/}}  {{#ef4444!20}}红且大{{/}}
 const MARKER_RE = /\{\{(?:#([0-9a-fA-F]{3,8}))?(?:!(\d{1,3}))?\}\}([\s\S]*?)\{\{\/\}\}/g;
@@ -109,6 +122,8 @@ export default function MarkdownEditor({
 }) {
   const [content, setContent] = useState(initialContent);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [tableHover, setTableHover] = useState<{ r: number; c: number } | null>(null);
 
   function handleChange(value: string) {
     setContent(value);
@@ -174,6 +189,25 @@ export default function MarkdownEditor({
     applyStyle({ size: px });
   }
 
+  // 在光标处插入指定行列的表格，前后补换行保证表格独占段落
+  function insertTable(rows: number, cols: number) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const prefix = start > 0 && content[start - 1] !== "\n" ? "\n" : "";
+    const suffix = end < content.length && content[end] !== "\n" ? "\n" : "";
+    const table = prefix + buildTable(rows, cols) + suffix;
+    handleChange(content.slice(0, start) + table + content.slice(end));
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const pos = start + table.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
   return (
     <div className="grid h-full grid-cols-1 divide-y divide-[var(--border)] md:grid-cols-2 md:divide-x md:divide-y-0">
       {/* 左侧：调色板 + 源码 */}
@@ -233,6 +267,58 @@ export default function MarkdownEditor({
                 }}
               />
             </label>
+          </div>
+          {/* 表格行：网格选择器 */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setTableOpen((o) => !o);
+                  setTableHover(null);
+                }}
+                className="rounded border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+              >
+                插入表格
+              </button>
+              {tableOpen && (
+                <div className="absolute left-0 top-full z-30 mt-1 rounded border border-[var(--border)] bg-[var(--surface)] p-2 shadow-lg">
+                  <div className="mb-1 text-[10px] text-[var(--text-muted)]">
+                    {tableHover
+                      ? `${tableHover.r + 1} 行 × ${tableHover.c + 1} 列`
+                      : "选择行列"}
+                  </div>
+                  <div
+                    className="grid gap-1"
+                    style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 14px)` }}
+                  >
+                    {Array.from({ length: GRID_ROWS * GRID_COLS }).map((_, i) => {
+                      const r = Math.floor(i / GRID_COLS);
+                      const c = i % GRID_COLS;
+                      const active =
+                        tableHover !== null && r <= tableHover.r && c <= tableHover.c;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onMouseEnter={() => setTableHover({ r, c })}
+                          onClick={() => {
+                            insertTable(r + 1, c + 1);
+                            setTableOpen(false);
+                            setTableHover(null);
+                          }}
+                          className={`h-3.5 w-3.5 rounded-sm border ${
+                            active
+                              ? "border-[var(--text)] bg-[var(--text)]"
+                              : "border-[var(--border)] bg-transparent"
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <textarea
