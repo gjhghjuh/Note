@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeHighlight from "rehype-highlight";
 
 // 预设调色板（十六进制，不含 #）
@@ -131,7 +132,7 @@ export default function MarkdownEditor({
       {/* 右侧：预览 */}
       <div className="prose prose-invert h-full max-w-none overflow-y-auto p-5">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={[remarkGfm, remarkBreaks]}
           rehypePlugins={[rehypeHighlight, rehypeColor]}
         >
           {content}
