@@ -231,7 +231,7 @@ export default function MarkdownEditor({
   }
 
   return (
-    <div className="grid h-full grid-cols-1 divide-y divide-[var(--border)] md:grid-cols-2 md:divide-x md:divide-y-0">
+    <div className="grid h-full grid-cols-1 divide-y divide-[var(--border)] md:grid-cols-2 md:grid-rows-1 md:divide-x md:divide-y-0">
       {/* 左侧：调色板 + 源码 */}
       <div className="flex h-full min-h-[50vh] flex-col">
         <div className="space-y-2 border-b border-[var(--border)] px-2 py-2">
@@ -348,7 +348,7 @@ export default function MarkdownEditor({
           value={content}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="开始输入 Markdown..."
-          className="min-h-0 flex-1 resize-none border-0 bg-transparent p-5 font-mono text-sm leading-relaxed text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
+          className="min-h-0 flex-1 resize-none border-0 bg-transparent px-5 pt-5 pb-[100vh] font-mono text-sm leading-relaxed text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
         />
       </div>
       {/* 右侧：预览 */}
