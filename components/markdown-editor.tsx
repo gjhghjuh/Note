@@ -189,14 +189,36 @@ export default function MarkdownEditor({
     applyStyle({ size: px });
   }
 
-  // 在光标处插入指定行列的表格，前后补换行保证表格独占段落
+  // 在光标处插入指定行列的表格，前后补**两个**换行保证表格独占块（GFM 要求表格前后有空行）
   function insertTable(rows: number, cols: number) {
     const ta = textareaRef.current;
     if (!ta) return;
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
-    const prefix = start > 0 && content[start - 1] !== "\n" ? "\n" : "";
-    const suffix = end < content.length && content[end] !== "\n" ? "\n" : "";
+    // 表格前需要空行：如果光标前不是两个连续换行，补到两个
+    let prefix = "";
+    if (start === 0) {
+      prefix = "";
+    } else if (start === 1) {
+      prefix = content[0] !== "\n" ? "\n\n" : "\n";
+    } else {
+      const prev2 = content.slice(start - 2, start);
+      if (prev2 === "\n\n") prefix = "";
+      else if (prev2[1] === "\n") prefix = "\n";
+      else prefix = "\n\n";
+    }
+    // 表格后需要空行：如果光标后不是两个连续换行，补到两个
+    let suffix = "";
+    if (end === content.length) {
+      suffix = "";
+    } else if (end === content.length - 1) {
+      suffix = content[end] !== "\n" ? "\n\n" : "\n";
+    } else {
+      const next2 = content.slice(end, end + 2);
+      if (next2 === "\n\n") suffix = "";
+      else if (next2[0] === "\n") suffix = "\n";
+      else suffix = "\n\n";
+    }
     const table = prefix + buildTable(rows, cols) + suffix;
     handleChange(content.slice(0, start) + table + content.slice(end));
     requestAnimationFrame(() => {
