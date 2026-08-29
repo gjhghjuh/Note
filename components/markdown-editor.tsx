@@ -12,9 +12,15 @@ const PALETTE = [
   "3b82f6", "a855f7", "ec4899", "9ca3af", "ffffff",
 ];
 
-// 颜色语法 {{#hex}}文字{{/}} → <span style="color:#hex">文字</span>
-// 注意：颜色标记内不支持嵌套 Markdown 格式（编辑器只对纯文本选区包裹）
-function rehypeColor() {
+// 预设字号（像素）
+const SIZES = ["12", "14", "16", "18", "20", "24", "28", "32"];
+
+// 颜色/字号标记正则：上色或改字号前剥离选区已有标记，避免嵌套成 {{#a}}{{!20}}…{{/}}{{/}}
+const STYLE_MARKER_RE = /\{\{#[0-9a-fA-F]{3,8}\}\}|\{\{!\d{1,3}\}\}|\{\{\/\}\}/g;
+
+// 样式语法：{{#hex}}文字{{/}} → 颜色；{{!N}}文字{{/}} → 字号 Npx
+// 注意：标记内不支持嵌套 Markdown 格式（编辑器只对纯文本选区包裹）
+function rehypeStyle() {
   return (tree: any) => walk(tree);
 
   function walk(node: any) {
@@ -32,7 +38,8 @@ function rehypeColor() {
   }
 
   function splitText(value: string) {
-    const RE = /\{\{#([0-9a-fA-F]{3,8})\}\}([\s\S]*?)\{\{\/\}\}/g;
+    // 颜色 {{#hex}} 或 字号 {{!N}}，统一用 {{/}} 关闭
+    const RE = /\{\{(?:#([0-9a-fA-F]{3,8})|!(\d{1,3}))\}\}([\s\S]*?)\{\{\/\}\}/g;
     const nodes: any[] = [];
     let last = 0;
     let m: RegExpExecArray | null;
@@ -40,11 +47,12 @@ function rehypeColor() {
       if (m.index > last) {
         nodes.push({ type: "text", value: value.slice(last, m.index) });
       }
+      const style = m[1] ? `color:#${m[1]}` : `font-size:${m[2]}px`;
       nodes.push({
         type: "element",
         tagName: "span",
-        properties: { style: `color:#${m[1]}` },
-        children: [{ type: "text", value: m[2] }],
+        properties: { style },
+        children: [{ type: "text", value: m[3] }],
       });
       last = m.index + m[0].length;
     }
@@ -77,10 +85,10 @@ export default function MarkdownEditor({
     if (!ta) return;
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
-    // 去掉选区里已有的颜色标记，避免重复上色嵌套成 {{#a}}{{#b}}…{{/}}{{/}}
+    // 剥离选区里已有的颜色/字号标记，避免嵌套
     const cleaned = content
       .slice(start, end)
-      .replace(/\{\{#[0-9a-fA-F]{3,8}\}\}|\{\{\/\}\}/g, "");
+      .replace(STYLE_MARKER_RE, "");
     const wrapped = `{{#${hex}}}${cleaned}{{/}}`;
     const next = content.slice(0, start) + wrapped + content.slice(end);
     handleChange(next);
@@ -97,29 +105,92 @@ export default function MarkdownEditor({
     });
   }
 
+  // 给选中文字（或光标处）套上字号标记
+  function applySize(px: string) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    // 剥离选区里已有的颜色/字号标记，避免嵌套
+    const cleaned = content
+      .slice(start, end)
+      .replace(STYLE_MARKER_RE, "");
+    const wrapped = `{{!${px}}}${cleaned}{{/}}`;
+    const next = content.slice(0, start) + wrapped + content.slice(end);
+    handleChange(next);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      if (start === end) {
+        const pos = start + `{{!${px}}}`.length;
+        el.setSelectionRange(pos, pos);
+      } else {
+        el.setSelectionRange(start, start + wrapped.length);
+      }
+    });
+  }
+
   return (
     <div className="grid h-full grid-cols-1 divide-y divide-[var(--border)] md:grid-cols-2 md:divide-x md:divide-y-0">
       {/* 左侧：调色板 + 源码 */}
       <div className="flex h-full min-h-[50vh] flex-col">
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-2 py-2">
-          {PALETTE.map((hex) => (
-            <button
-              key={hex}
-              type="button"
-              onClick={() => applyColor(hex)}
-              title={`#${hex}`}
-              className="h-5 w-5 rounded-full border border-[var(--border)]"
-              style={{ backgroundColor: `#${hex}` }}
-            />
-          ))}
-          <label className="ml-1 flex h-5 cursor-pointer items-center gap-1 rounded-full border border-[var(--border)] px-2 text-[10px] text-[var(--text-muted)]">
-            自定义
-            <input
-              type="color"
-              className="h-3.5 w-5 cursor-pointer border-0 bg-transparent p-0"
-              onChange={(e) => applyColor(e.target.value.slice(1))}
-            />
-          </label>
+        <div className="space-y-2 border-b border-[var(--border)] px-2 py-2">
+          {/* 颜色行 */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {PALETTE.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                onClick={() => applyColor(hex)}
+                title={`#${hex}`}
+                className="h-5 w-5 rounded-full border border-[var(--border)]"
+                style={{ backgroundColor: `#${hex}` }}
+              />
+            ))}
+            <label className="ml-1 flex h-5 cursor-pointer items-center gap-1 rounded-full border border-[var(--border)] px-2 text-[10px] text-[var(--text-muted)]">
+              自定义
+              <input
+                type="color"
+                className="h-3.5 w-5 cursor-pointer border-0 bg-transparent p-0"
+                onChange={(e) => applyColor(e.target.value.slice(1))}
+              />
+            </label>
+          </div>
+          {/* 字号行 */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {SIZES.map((px) => (
+              <button
+                key={px}
+                type="button"
+                onClick={() => applySize(px)}
+                title={`${px}px`}
+                className="rounded border border-[var(--border)] px-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+              >
+                {px}
+              </button>
+            ))}
+            <label className="ml-1 flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+              自定义
+              <input
+                type="number"
+                min="8"
+                max="72"
+                placeholder="px"
+                className="w-14 rounded border border-[var(--border)] bg-transparent px-1 py-0.5 text-xs text-[var(--text)] outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const v = (e.target as HTMLInputElement).value.trim();
+                    if (v) applySize(v);
+                  }
+                }}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v) applySize(v);
+                }}
+              />
+            </label>
+          </div>
         </div>
         <textarea
           ref={textareaRef}
@@ -133,7 +204,7 @@ export default function MarkdownEditor({
       <div className="prose prose-invert h-full max-w-none overflow-y-auto p-5">
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkBreaks]}
-          rehypePlugins={[rehypeHighlight, rehypeColor]}
+          rehypePlugins={[rehypeHighlight, rehypeStyle]}
         >
           {content}
         </ReactMarkdown>
