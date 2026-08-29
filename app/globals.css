@@ -19,3 +19,9 @@ body {
   background-color: var(--bg);
   color: var(--text);
 }
+
+/* 表格贴内容宽度：覆盖 prose 默认的 width:100%，避免表格被拉满整行、列间距被撑散 */
+.prose table {
+  width: auto;
+  max-width: 100%;
+}
